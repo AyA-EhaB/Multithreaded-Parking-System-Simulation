@@ -1,8 +1,3 @@
-# Multithreaded-Parking-System-Simulation
-Here's a GitHub-friendly version of the visualization for your parking system simulation. This can be used in the README file to explain the project's flow and architecture.
-
----
-
 # Multithreaded Parking System Simulation
 
 This project simulates a multithreaded parking system using Java threads and semaphores. The simulation models a parking lot with multiple entry gates, where cars arrive, park for a specified duration, and then leave. Each car’s journey (arrival, parking, and departure) is managed through a separate thread.
