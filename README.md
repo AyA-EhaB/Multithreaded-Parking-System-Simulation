@@ -123,4 +123,3 @@ To run the simulation:
 
 ---
 
-This README section provides a comprehensive overview and process flow, perfect for helping readers understand the architecture of your parking system simulation project.
