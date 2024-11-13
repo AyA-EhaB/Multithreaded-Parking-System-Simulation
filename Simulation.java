@@ -3,6 +3,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 class Custom_Semaphore {
     private int permits; //number of our recourse
@@ -44,14 +46,14 @@ class Simulation {
     public static void main(String[] args) {
         parkingSpots = new Custom_Semaphore(Parking_Spots);
         Thread[] carThreads = new Thread[0]; // To store all car threads
-
+        GateThread[] gates = new GateThread[NUM_GATES];
         try {
             carThreads = readAndProcessInput("input.txt");
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        // Wait for all car threads to finish
+        // Wait for all car threads to finish before starting gate threads
         for (Thread t : carThreads) {
             try {
                 t.join();  // Ensures that the main thread waits for all CarThreads to finish
@@ -60,6 +62,32 @@ class Simulation {
             }
         }
 
+        //////////////////////////////////////////////
+        for (int i = 0; i < NUM_GATES; i++) {
+            gates[i] = new GateThread(i + 1); // Gate numbers are 1, 2, 3
+        }
+
+        // Add cars to the respective gate queues
+        for (Thread carThread : carThreads) {
+            CarThread car = (CarThread) carThread;
+            gates[car.gate - 1].addCar(car); // Add car to the corresponding gate
+        }
+
+        // Start all gate threads
+        for (GateThread gate : gates) {
+            gate.start();
+        }
+
+        // Wait for all gate threads to finish
+        for (GateThread gate : gates) {
+            try {
+                gate.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        //////////////////////////////////////////////
         // Print the summary after all threads finish processing
         printSummary();
     }
@@ -91,7 +119,33 @@ class Simulation {
 
         return carThreads;
     }
+    private static class GateThread extends Thread {
+        private int gateNumber;
+        private Queue<CarThread> carQueue = new ConcurrentLinkedQueue<>();
 
+        public GateThread(int gateNumber) {
+            this.gateNumber = gateNumber;
+        }
+
+        // Method to add a car to the queue
+        public void addCar(CarThread car) {
+            carQueue.add(car);
+        }
+
+        @Override
+        public void run() {
+            while (!carQueue.isEmpty()) {
+                CarThread car = carQueue.poll();
+                if (car != null) {
+                    try {
+                        car.join();  // Wait for each car to finish before processing the next one
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
     private static class CarThread extends Thread {
         private int gate;
         private int car;
@@ -109,9 +163,10 @@ class Simulation {
         public void run() {
             try {
                 // Simulate arrival time
-                Thread.sleep(arrivalTime * 1000);
+                Thread.sleep(arrivalTime * 1000);  // Arrival time in seconds
                 System.out.printf("Car %d from Gate %d arrived at time %d\n", car, gate, arrivalTime);
 
+                // Check if a parking spot is available
                 long waitStart = System.currentTimeMillis();
                 synchronized (Custom_Semaphore.class) {
                     if (currentCarsParked >= Parking_Spots) {
@@ -128,7 +183,7 @@ class Simulation {
                 synchronized (Custom_Semaphore.class) {
                     currentCarsParked++;
                 }
-                System.out.printf("Car %d from Gate %d parked after waiting for %d units of time. (Parking Status: %d spots occupied)\n",
+                System.out.printf("Car %d from Gate %d parked after waiting for %d seconds. (Parking Status: %d spots occupied)\n",
                         car, gate, waitingTime, currentCarsParked);
                 synchronized (lock) {
                     totalCarsServed++;
@@ -136,20 +191,21 @@ class Simulation {
                 }
 
                 // Simulate parking duration
-                Thread.sleep(parkingDuration * 1000);
+                Thread.sleep(parkingDuration * 1000);  // Parking duration in seconds
 
                 // Car leaves, release parking spot
                 parkingSpots.release();
                 synchronized (Custom_Semaphore.class) {
                     currentCarsParked--;
                 }
-                System.out.printf("Car %d from Gate %d left after %d units of time. (Parking Status: %d spots occupied)\n",
+                System.out.printf("Car %d from Gate %d left after %d seconds. (Parking Status: %d spots occupied)\n",
                         car, gate, parkingDuration, currentCarsParked);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
     }
+
 
     private static void printSummary() {
         synchronized (lock) {
